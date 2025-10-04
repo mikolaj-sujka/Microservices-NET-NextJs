@@ -1,5 +1,5 @@
-
 using AuctionService.Data;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 
 namespace AuctionService;
@@ -16,6 +16,22 @@ public class Program
         });
 
         builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+
+        builder.Services.AddMassTransit(x =>
+        {
+            x.AddEntityFrameworkOutbox<AuctionDbContext>(opt =>
+            {
+                opt.QueryDelay = TimeSpan.FromSeconds(10);
+
+                opt.UsePostgres();
+                opt.UseBusOutbox();
+            });
+
+            x.UsingRabbitMq((context, cfg) =>
+            {
+                cfg.ConfigureEndpoints(context);
+            });
+        });
 
         // Add services to the container.
         builder.Services.AddAuthorization();
