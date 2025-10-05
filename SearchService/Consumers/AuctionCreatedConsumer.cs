@@ -14,6 +14,8 @@ public class AuctionCreatedConsumer(IMapper mapper) : IConsumer<AuctionCreated>
 
         var item = mapper.Map<Item>(context.Message);
 
+        if (item.Model == "Foo") throw new ArgumentException("Invalid item model - Foo");
+
         await item.SaveAsync();
     }
 }

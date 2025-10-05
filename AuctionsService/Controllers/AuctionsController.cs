@@ -76,6 +76,8 @@ public class AuctionsController(AuctionDbContext context, IMapper mapper, IPubli
         auction.Item.Mileage = updateAuctionDto.Mileage != 0 ? updateAuctionDto.Mileage : auction.Item.Mileage;
         auction.Item.ImageUrl = updateAuctionDto.ImageUrl ?? auction.Item.ImageUrl;
 
+        await publishEndpoint.Publish(mapper.Map<AuctionUpdated>(auction));
+
         var result = await context.SaveChangesAsync() > 0;
         if (result) return Ok();
         return BadRequest("Failed to update auction");
@@ -89,7 +91,10 @@ public class AuctionsController(AuctionDbContext context, IMapper mapper, IPubli
             .FirstOrDefaultAsync(x => x.Id.Equals(id));
         
         if (auction == null) return NotFound("Auction not found");
+        
         context.Auctions.Remove(auction);
+
+        await publishEndpoint.Publish<AuctionDeleted>(new { Id = auction.Id.ToString()});
 
         var result = await context.SaveChangesAsync() > 0;
         
