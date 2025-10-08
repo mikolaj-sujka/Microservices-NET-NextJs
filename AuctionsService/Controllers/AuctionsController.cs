@@ -5,6 +5,7 @@ using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Contracts;
 using MassTransit;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -39,12 +40,13 @@ public class AuctionsController(AuctionDbContext context, IMapper mapper, IPubli
         return Ok(mapper.Map<AuctionDto>(auction));
     }
 
+    [Authorize]
     [HttpPost]
     public async Task<ActionResult<AuctionDto>> CreateAuction(CreateAuctionDto createAuctionDto)
     {
         var auction = mapper.Map<Auction>(createAuctionDto);
 
-        auction.Seller = "test";
+        auction.Seller = User.Identity.Name;
         context.Auctions.Add(auction);
 
         var newAuction = mapper.Map<AuctionDto>(auction);
@@ -60,6 +62,7 @@ public class AuctionsController(AuctionDbContext context, IMapper mapper, IPubli
         return BadRequest("Failed to create auction");
     }
 
+    [Authorize]
     [HttpPut("{id}")]
     public async Task<ActionResult> UpdateAuction(Guid id, UpdateAuctionDto updateAuctionDto)
     {
@@ -68,6 +71,11 @@ public class AuctionsController(AuctionDbContext context, IMapper mapper, IPubli
             .FirstOrDefaultAsync(x => x.Id.Equals(id));
         
         if (auction == null) return NotFound("Auction not found");
+
+        if (auction.Seller != User.Identity.Name)
+        {
+            return Forbid("You are not the seller of this auction");
+        }
 
         auction.Item.Make = updateAuctionDto.Make ?? auction.Item.Make;
         auction.Item.Model = updateAuctionDto.Model ?? auction.Item.Model;
@@ -83,6 +91,7 @@ public class AuctionsController(AuctionDbContext context, IMapper mapper, IPubli
         return BadRequest("Failed to update auction");
     }
 
+    [Authorize]
     [HttpDelete("{id}")]
     public async Task<ActionResult> DeleteAuction(Guid id)
     {
@@ -91,7 +100,12 @@ public class AuctionsController(AuctionDbContext context, IMapper mapper, IPubli
             .FirstOrDefaultAsync(x => x.Id.Equals(id));
         
         if (auction == null) return NotFound("Auction not found");
-        
+
+        if (auction.Seller != User.Identity.Name)
+        {
+            return Forbid("You are not the seller of this auction");
+        }
+
         context.Auctions.Remove(auction);
 
         await publishEndpoint.Publish<AuctionDeleted>(new { Id = auction.Id.ToString()});
